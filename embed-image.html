@@ -89,7 +89,7 @@
         return ["1", "true", "yes", "on"].includes(String(v).toLowerCase());
       }
 
-      // Accept: http/https only
+      // Accept: http/https only（リンク用）
       function safeUrl(u) {
         try {
           const url = new URL(u);
@@ -104,7 +104,8 @@
         const search = location.search;
 
         // Parameter names
-        const urlRaw = getParam(["imgurl", "url", "src", "image", "u"], search); // required
+        // imgurl は FILE_ID のみを想定
+        const fileIdRaw = getParam(["imgurl", "fileid", "id"], search); // required
         const width = toInt(getParam(["width", "w"], search));
         const height = toInt(getParam(["height", "h"], search));
         const alt = getParam(["alt", "a", "代替テキスト"], search) || "";
@@ -116,27 +117,33 @@
         const imgBox = document.getElementById("imgBox");
         const cap = document.getElementById("cap");
 
-        if (!urlRaw) {
-          const example = `${location.origin}${location.pathname}?imgurl=https%3A%2F%2Flh3.googleusercontent.com%2Fd%2FFILE_ID&width=800&height=450&alt=%E8%AA%AC%E6%98%8E&cap=%E3%82%AD%E3%83%A3%E3%83%97%E3%82%B7%E3%83%A7%E3%83%B3&link=https%3A%2F%2Fexample.com&tab=true`;
-          hint.innerHTML = `imgurl は必須です。<br/>使い方: <code>?imgurl=...&width=...&height=...&alt=...&cap=...&link=...&tab=true</code><br/>例: <a href="${example}">パラメータ例</a>`;
+        if (!fileIdRaw) {
+          const example = `${location.origin}${location.pathname}?imgurl=FILE_ID&width=800&height=450&alt=%E8%AA%AC%E6%98%8E&cap=%E3%82%AD%E3%83%A3%E3%83%97%E3%82%B7%E3%83%A7%E3%83%B3&link=https%3A%2F%2Fexample.com&tab=true`;
+          hint.innerHTML = `imgurl (GoogleドライブのファイルID) は必須です。<br/>使い方: <code>?imgurl=FILE_ID&width=...&height=...&alt=...&cap=...&link=...&tab=true</code><br/>例: <a href="${example}">パラメータ例</a>`;
           hint.classList.remove("err");
           return;
         }
 
-        const safeSrc = safeUrl(urlRaw);
-        if (!safeSrc) {
+        const fileId = fileIdRaw.trim();
+
+        // 簡易バリデーション（英数字 + _ - / 10文字以上くらい）
+        if (!/^[a-zA-Z0-9_-]{10,}$/.test(fileId)) {
           hint.textContent =
-            "imgurlが不正です（http/httpsのみ許可。例: https://lh3.googleusercontent.com/d/FILE_ID）";
+            "imgurl (FILE_ID) が不正です。GoogleドライブのファイルIDのみ指定してください。";
           hint.classList.add("err");
           return;
         }
+
+        // ★ここで最終的な画像URLを組み立てる★
+        const src = `https://lh3.googleusercontent.com/d/${fileId}`;
 
         const img = new Image();
         img.decoding = "async";
         img.loading = "lazy";
         img.alt = alt;
-        img.src = safeSrc;
-        // width / height が指定されていない場合は属性を付けない → ブラウザが画像の実サイズで表示
+        img.src = src;
+
+        // width / height が指定されていない場合は属性を付けない → 実サイズで表示
         if (width) img.width = width;
         if (height) img.height = height;
 
@@ -164,7 +171,8 @@
 
         // debug log
         const sp = new URLSearchParams();
-        sp.set("src", safeSrc);
+        sp.set("fileId", fileId);
+        sp.set("src", src);
         if (width) sp.set("width", String(width));
         if (height) sp.set("height", String(height));
         if (alt) sp.set("alt", alt);
